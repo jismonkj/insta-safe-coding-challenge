@@ -8,14 +8,16 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
-// TestStoreTransaction tests transaction creation functonality.
-func TestStoreTransaction(t *testing.T) {
+// For testing non-exported functions
+var StoreTransaction = storeTransaction
+var RemoveTransactions = removeTransactions
 
-	// Starts the API server for sending requests.
-	ginEngine := startGinRouter()
-
+// createTransactions tries to create and test transactions on different scenarios.
+func createTransactions(t *testing.T, ginEngine *gin.Engine){
 	// List of transactions with different expected outputs.
 	currentTime := time.Now().UTC()
 	var transactionCases []Transaction
@@ -31,10 +33,15 @@ func TestStoreTransaction(t *testing.T) {
 
 	// 201 : Transaction created
 	transactionCases = append(transactionCases, Transaction{Amount: "100.25", Timestamp: currentTime.Format(time.RFC3339), ExpectedStatus: http.StatusCreated})
+	transactionCases = append(transactionCases, Transaction{Amount: "101.25", Timestamp: currentTime.Format(time.RFC3339), ExpectedStatus: http.StatusCreated})
+	transactionCases = append(transactionCases, Transaction{Amount: "101.25", Timestamp: currentTime.Add(time.Second * time.Duration(-2)).Format(time.RFC3339), ExpectedStatus: http.StatusCreated})
+	transactionCases = append(transactionCases, Transaction{Amount: "50", Timestamp: currentTime.Add(time.Second * time.Duration(-2)).Format(time.RFC3339), ExpectedStatus: http.StatusCreated})
+
 
 	// Iterate through each Transaction cases and run sub tests.
 	for _, transaction := range transactionCases {
 		t.Run(fmt.Sprintf("Transaction Expected Status: %d", transaction.ExpectedStatus), func(t *testing.T) {
+			w := httptest.NewRecorder()
 
 			var transactionJson []byte
 			var err error
@@ -48,7 +55,6 @@ func TestStoreTransaction(t *testing.T) {
 
 			bodyReader := bytes.NewReader(transactionJson)
 
-			w := httptest.NewRecorder()
 			req, _ := http.NewRequest(http.MethodPost, "/transactions", bodyReader)
 			ginEngine.ServeHTTP(w, req)
 
@@ -57,6 +63,16 @@ func TestStoreTransaction(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestStoreTransaction tests transaction creation functonality.
+func TestStoreTransaction(t *testing.T) {
+
+	// Starts the API server for sending requests.
+	ginEngine := startGinRouter()
+
+	// Creates and tests different transactions.
+	createTransactions(t, ginEngine)
 }
 
 // TestRemoveTransactions tests functionality for removing all transactions.

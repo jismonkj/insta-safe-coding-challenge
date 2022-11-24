@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"time"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,7 +17,7 @@ type Transaction struct {
 	ExpectedStatus int    // Used for testing (Expected response status on different transactions)
 }
 
-// StoreTransaction stores a valid transaction in the global map.
+// storeTransaction stores a valid transaction in the global map.
 //
 // Transaction (example):
 // {
@@ -30,7 +31,7 @@ type Transaction struct {
 // 400 – if the JSON is invalid	(http.StatusBadRequest)
 // 422 – if any of the fields are not parsable or the transaction date is in the future (http.StatusUnprocessableEntity)
 //
-func StoreTransaction(ginCtx *gin.Context) {
+func storeTransaction(ginCtx *gin.Context) {
 	reqBody, err := ginCtx.GetRawData()
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, "Failed to parse request")
@@ -70,21 +71,25 @@ func StoreTransaction(ginCtx *gin.Context) {
 		return
 	}
 
+	// Convert amount to float32
+	value, err := strconv.ParseFloat(transaction.Amount, 32)
+	if err != nil {
+		ginCtx.String(http.StatusUnprocessableEntity, "Failed to parse amount")
+		return
+	}
+	amount := float32(value)
+
 	// All validations are complete!!.
 	log.Println("Transaction is valid")
-	// Store the transaction in the map against transaction time changing seconds to zero.
-	// This is for easier look up of all transactions happened in the minute when doing the statistics.
-	mapKey := transactionTime.Round(60 * time.Second)
-	log.Printf("transaction map key = %v", mapKey)
-	TransactionStoreMap[mapKey] = append(TransactionStoreMap[mapKey], transaction)
-	log.Println("Stored the transaction in the map")
 
+	// Update the statistics.
+	transactionStatisticsUpdator(transactionTime, amount)
 	ginCtx.String(http.StatusCreated, "Transaction updated")
 }
 
 // RemoveTransactions removes stored transactions from the global map.
-func RemoveTransactions(ginCtx *gin.Context) {
-	TransactionStoreMap = make(map[time.Time][]Transaction)
+func removeTransactions(ginCtx *gin.Context) {
+	TransactionStoreMap = make(map[time.Time]TransactionStatistics)
 	log.Println("Cleared transaction map")
 	ginCtx.String(http.StatusNoContent, "Transactions cleared")
 }

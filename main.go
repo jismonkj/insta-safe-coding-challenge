@@ -9,17 +9,21 @@ func startGinRouter() *gin.Engine {
 	router := gin.Default()
 
 	// API endpoints
-
 	// Manages transactions
 	{
-		router.POST("/transactions", StoreTransaction)
-		router.DELETE("/transactions", RemoveTransactions)
+		router.POST("/transactions", storeTransaction)
+		router.DELETE("/transactions", removeTransactions)
 	}
 
 	// Manage user location
 	{
-		router.POST("/location", SetLocation)
-		router.DELETE("/location", ResetLocation)
+		router.POST("/location", setLocation)
+		router.DELETE("/location", resetLocation)
+	}
+
+	// Getting statistics
+	{
+		router.GET("/statistics", loadTransactionStatistics)
 	}
 
 	return router
